@@ -108,6 +108,9 @@ enum CodexReader {
                                   modified: values.contentModificationDate ?? .distantPast,
                                   size: values.fileSize ?? 0))
         }
+        // Forget files that no longer exist, so the cache doesn't grow forever.
+        let present = Set(files.map(\.url))
+        parsed = parsed.filter { present.contains($0.key) }
 
         // Pick the snapshot with the newest *event* timestamp across all sessions. Resuming an old
         // conversation touches its file, so modification time alone can point at stale limits.
@@ -141,6 +144,10 @@ enum CodexReader {
         let chunk: UInt64 = 1 << 20
         var offset = (try? handle.seekToEnd()) ?? 0
         var carry = Data()   // start of a line that continues into the chunk read before this one
+        // Lines longer than this (e.g. a big tool output or embedded image) can't be rate limit or
+        // model events, so they're skipped instead of being collected in memory.
+        let maxLine = 8 << 20
+        var skipping = false // inside an oversized line: drop everything up to its start
 
         scan: while offset > 0 {
             let start = offset > chunk ? offset - chunk : 0
@@ -149,8 +156,15 @@ enum CodexReader {
             offset = start
 
             var lines = (data + carry).split(separator: UInt8(ascii: "\n"), omittingEmptySubsequences: false)
+            if skipping {
+                // The last piece belongs to the oversized line. If there's anything before it,
+                // this chunk contains that line's start, so the skip ends here.
+                lines.removeLast()
+                skipping = lines.isEmpty
+            }
             // Unless we're at the start of the file, the first line may be cut off: finish it next round.
             carry = start > 0 && !lines.isEmpty ? Data(lines.removeFirst()) : Data()
+            if carry.count > maxLine { carry = Data(); skipping = true }
 
             for raw in lines.reversed() where !raw.isEmpty {
                 let line = String(decoding: raw, as: UTF8.self)
