@@ -100,6 +100,10 @@ Colours live in `Palette` in `Gauge.swift`.
 - The Codex session log format isn't a public API, so a Codex update could change it and break the Codex section until Gauge is updated.
 - The app is ad-hoc signed, not notarized, so you need to build it yourself.
 
+## Contributing
+
+Bug reports, ideas and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Disclaimer
 
 Gauge is an independent project. It is not affiliated with, endorsed by, or sponsored by Anthropic or OpenAI. "Claude" and "Codex" are trademarks of their respective owners and are used here only to describe what the app works with.
