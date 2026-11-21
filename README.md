@@ -18,7 +18,7 @@
 - **Both limits for each tool**: the 5-hour session window and the weekly window
 - **Reset times**, as a clock time and a countdown
 - **Pace marker** on each bar: where you'd be if you spread usage evenly across the window. An *Above pace* warning appears when you're well ahead of it
-- **Menu bar readout**: both tools side by side, the highest of the two, or just one
+- **Menu bar readout**: both tools side by side, the highest of the two, or just one. Side by side, each tool's icon is a small dial that fills with its usage
 
   <img src="docs/menubar.png" width="220" alt="Menu bar modes">
 
@@ -93,7 +93,7 @@ build/Gauge.app/Contents/MacOS/Gauge --snapshot out.png dark   # render the pane
 swift icon/make-icon.swift icon/AppIcon-1024.png      # redraw the app icon
 ```
 
-Colours live in `Palette` in `Gauge.swift`.
+Colours live in `Palette` in `Gauge.swift`. The provider icons are drawn in `drawProviderIcon`; `icon/claude.svg` and `icon/codex.svg` show the same design as standalone SVGs.
 
 ## Caveats
 
@@ -106,7 +106,7 @@ Bug reports, ideas and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBU
 
 ## Disclaimer
 
-Gauge is an independent project. It is not affiliated with, endorsed by, or sponsored by Anthropic or OpenAI. "Claude" and "Codex" are trademarks of their respective owners and are used here only to describe what the app works with.
+Gauge is an independent project. It is not affiliated with, endorsed by, or sponsored by Anthropic or OpenAI. "Claude", "Claude Code" and "Codex", and the Claude Code and Codex logos, are trademarks of their respective owners and are used here only to show which tool each part of the app refers to.
 
 ## License
 

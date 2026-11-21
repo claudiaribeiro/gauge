@@ -52,7 +52,15 @@ enum Provider: String, CaseIterable, Identifiable {
     case claude, codex
     var id: String { rawValue }
     var name: String { self == .claude ? "Claude" : "Codex" }
-    var symbol: String { self == .claude ? "sparkle" : "terminal" }
+    /// Provider logo (Claude Code / Codex mark), sized to sit inside the gauge dial. See icon/*.svg.
+    var logo: NSImage { self == .claude ? Self.claudeLogo : Self.codexLogo }
+    private static let claudeLogo = svg(#"<path transform="translate(4.44 4.125) scale(0.63)" fill-rule="evenodd" d="M20.998 10.949H24v3.102h-3v3.028h-1.487V20H18v-2.921h-1.487V20H15v-2.921H9V20H7.488v-2.921H6V20H4.487v-2.921H3V14.05H0V10.95h3V5h17.998v5.949zM6 10.949h1.488V8.102H6v2.847zm10.51 0H18V8.102h-1.49v2.847z"/>"#)
+    private static let codexLogo = svg(#"<path transform="translate(4.56 4.56) scale(0.62)" fill-rule="evenodd" d="M 8.086 .457 a 6.105 6.105 0 0 1 3.046 -.415 c 1.333 .153 2.521 .72 3.564 1.7 a .117 .117 0 0 0 .107 .029 c 1.408 -.346 2.762 -.224 4.061 .366 l .063 .03 .154 .076 c 1.357 .703 2.33 1.77 2.918 3.198 .278 .679 .418 1.388 .421 2.126 a 5.655 5.655 0 0 1 -.18 1.631 .167 .167 0 0 0 .04 .155 5.982 5.982 0 0 1 1.578 2.891 c .385 1.901 -.01 3.615 -1.183 5.14 l -.182 .22 a 6.063 6.063 0 0 1 -2.934 1.851 .162 .162 0 0 0 -.108 .102 c -.255 .736 -.511 1.364 -.987 1.992 -1.199 1.582 -2.962 2.462 -4.948 2.451 -1.583 -.008 -2.986 -.587 -4.21 -1.736 a .145 .145 0 0 0 -.14 -.032 c -.518 .167 -1.04 .191 -1.604 .185 a 5.924 5.924 0 0 1 -2.595 -.622 6.058 6.058 0 0 1 -2.146 -1.781 c -.203 -.269 -.404 -.522 -.551 -.821 a 7.74 7.74 0 0 1 -.495 -1.283 6.11 6.11 0 0 1 -.017 -3.064 .166 .166 0 0 0 .008 -.074 .115 .115 0 0 0 -.037 -.064 5.958 5.958 0 0 1 -1.38 -2.202 5.196 5.196 0 0 1 -.333 -1.589 6.915 6.915 0 0 1 .188 -2.132 c .45 -1.484 1.309 -2.648 2.577 -3.493 .282 -.188 .55 -.334 .802 -.438 .286 -.12 .573 -.22 .861 -.304 a .129 .129 0 0 0 .087 -.087 A 6.016 6.016 0 0 1 5.635 2.31 C 6.315 1.464 7.132 .846 8.086 .457 z m -.804 7.85 a .848 .848 0 0 0 -1.473 .842 l 1.694 2.965 -1.688 2.848 a .849 .849 0 0 0 1.46 .864 l 1.94 -3.272 a .849 .849 0 0 0 .007 -.854 l -1.94 -3.393 z m 5.446 6.24 a .849 .849 0 0 0 0 1.695 h 4.848 a .849 .849 0 0 0 0 -1.696 h -4.848 z"/>"#)
+    private static func svg(_ path: String) -> NSImage {
+        let doc = #"<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">"#
+            + path + "</svg>"
+        return NSImage(data: Data(doc.utf8)) ?? NSImage(size: NSSize(width: 24, height: 24))
+    }
     var app: String { self == .claude ? "Claude Code" : "Codex" }
     var usageURL: URL {
         URL(string: self == .claude ? "https://claude.ai/settings/usage"
@@ -377,7 +385,7 @@ enum MenuBarMode: String, CaseIterable, Identifiable {
 }
 
 struct MenuBarItem {
-    let symbol: String?    // provider glyph, or nil to draw a usage ring instead
+    let provider: Provider?    // draw this provider's gauge icon, or nil for a plain usage ring
     let fraction: Double
     let text: String
 }
@@ -386,7 +394,7 @@ struct MenuBarItem {
 func menuBarImage(_ items: [MenuBarItem]) -> NSImage {
     let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.menuBarFont(ofSize: 0).pointSize, weight: .regular)
     let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.black]
-    let icon: CGFloat = 15, gap: CGFloat = 3, spacing: CGFloat = 9, height: CGFloat = 18
+    let icon: CGFloat = 18, gap: CGFloat = 4, spacing: CGFloat = 9, height: CGFloat = 18
 
     let widths = items.map { ($0.text as NSString).size(withAttributes: attrs).width }
     let total = widths.map { icon + gap + $0 }.reduce(0, +)
@@ -396,12 +404,8 @@ func menuBarImage(_ items: [MenuBarItem]) -> NSImage {
         var x: CGFloat = 0
         for (item, width) in zip(items, widths) {
             let iconRect = NSRect(x: x, y: (height - icon) / 2, width: icon, height: icon)
-            if let name = item.symbol,
-               let glyph = NSImage(systemSymbolName: name, accessibilityDescription: nil)?
-                .withSymbolConfiguration(.init(pointSize: 11, weight: .semibold)) {
-                let s = glyph.size
-                glyph.draw(in: NSRect(x: iconRect.midX - s.width / 2, y: iconRect.midY - s.height / 2,
-                                      width: s.width, height: s.height))
+            if let provider = item.provider {
+                drawProviderIcon(provider, in: iconRect, fraction: item.fraction)
             } else {
                 drawRing(in: iconRect, fraction: item.fraction)
             }
@@ -437,11 +441,45 @@ func drawRing(in rect: NSRect, fraction: Double) {
     arc.stroke()
 }
 
+/// A provider logo inside a gauge dial: a 270° track open at the bottom whose arc fills with usage.
+func drawProviderIcon(_ provider: Provider, in rect: NSRect, fraction: Double) {
+    let unit = rect.width / 24    // the design is drawn on a 24-unit grid (icon/*.svg)
+    let center = NSPoint(x: rect.midX, y: rect.midY), radius = 10.8 * unit
+
+    let track = NSBezierPath()
+    track.appendArc(withCenter: center, radius: radius, startAngle: 225, endAngle: -45, clockwise: true)
+    track.lineWidth = 1.7 * unit
+    track.lineCapStyle = .round
+    NSColor.black.withAlphaComponent(0.35).setStroke()
+    track.stroke()
+
+    let f = min(max(fraction, 0), 1)
+    if f > 0 {
+        let arc = NSBezierPath()
+        arc.appendArc(withCenter: center, radius: radius, startAngle: 225, endAngle: 225 - 270 * f, clockwise: true)
+        arc.lineWidth = 2.4 * unit
+        arc.lineCapStyle = .round
+        NSColor.black.setStroke()
+        arc.stroke()
+    }
+    provider.logo.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 0.75)    // toned down so the dial leads
+}
+
+/// The provider's gauge icon as a template image, for SwiftUI.
+func providerIcon(_ provider: Provider, fraction: Double, size: CGFloat) -> NSImage {
+    let image = NSImage(size: NSSize(width: size, height: size), flipped: false) { rect in
+        drawProviderIcon(provider, in: rect, fraction: fraction)
+        return true
+    }
+    image.isTemplate = true
+    return image
+}
+
 @MainActor
 func menuBarItems(store: UsageStore, mode: MenuBarMode) -> [MenuBarItem] {
     func ring(_ p: Provider) -> MenuBarItem {
         let pct = store.tightest(p)
-        return MenuBarItem(symbol: nil, fraction: Double(pct ?? 0) / 100, text: pct.map { "\($0)%" } ?? "–")
+        return MenuBarItem(provider: nil, fraction: Double(pct ?? 0) / 100, text: pct.map { "\($0)%" } ?? "–")
     }
     let available = store.providersWithData
     switch mode {
@@ -451,12 +489,12 @@ func menuBarItems(store: UsageStore, mode: MenuBarMode) -> [MenuBarItem] {
         let top = available.max { (store.tightest($0) ?? 0) < (store.tightest($1) ?? 0) } ?? .claude
         return [ring(top)]
     case .both:
-        // With two numbers side by side, label each with its provider glyph instead of a ring.
+        // With two numbers side by side, label each with its provider's gauge icon instead of a plain ring.
         let shown = available.isEmpty ? [Provider.claude] : available
         if shown.count == 1 { return [ring(shown[0])] }
         return shown.map { p in
             let pct = store.tightest(p)
-            return MenuBarItem(symbol: p.symbol, fraction: 0, text: pct.map { "\($0)%" } ?? "–")
+            return MenuBarItem(provider: p, fraction: Double(pct ?? 0) / 100, text: pct.map { "\($0)%" } ?? "–")
         }
     }
 }
@@ -552,10 +590,11 @@ struct ProviderSection: View {
         VStack(alignment: .leading, spacing: 14) {
             // Header
             HStack(spacing: 6) {
-                Image(systemName: provider.symbol)
-                    .font(.system(size: 12, weight: .semibold))
+                Image(nsImage: providerIcon(provider, fraction: Double(store.tightest(provider) ?? 0) / 100, size: 24))
+                    .renderingMode(.template)
                     .foregroundStyle(palette.fill(provider))
-                    .frame(width: 16)
+                    .frame(width: 24, height: 24)
+                    .accessibilityHidden(true)    // the provider name follows
                 Text(provider.name).font(.system(size: 13, weight: .semibold)).foregroundStyle(palette.text)
                 if let plan = usage?.plan {
                     Text(plan).font(.system(size: 11)).foregroundStyle(palette.muted)
